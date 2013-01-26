@@ -47,7 +47,7 @@ function Encrypt(plainText, group) {
       return plainText;
     }
     var key = sjcl.codec.base64.toBits(keys[group]);
-    var cipherBits = AESEncrypt(key, sjcl.codec.utf8String.toBits(plainText));
+    var cipherBits = CTRAESEncript(key, sjcl.codec.utf8String.toBits(plainText));
     var prf = new sjcl.misc.hmac(key);
     var macTag = prf.encrypt(cipherBits);
     var message = sjcl.bitArray.concat(macTag, cipherBits);
@@ -79,7 +79,7 @@ function Decrypt(cipherText, group) {
       return "[ALERT] Someone changes the message!"; 
     }
 
-    var plainText = sjcl.codec.utf8String.fromBits(AESDecrypt(key, cipherBits));
+    var plainText = sjcl.codec.utf8String.fromBits(CTRAESDecript(key, cipherBits));
     return plainText;
   } else {
     throw "not encrypted";
@@ -101,7 +101,7 @@ function SaveKeys() {
   
   // CS255-todo: plaintext keys going to disk?
   var keyJson = JSON.stringify(keys);
-  var encryptedKeyJson = sjcl.codec.base64.fromBits(AESEncrypt(GetDBSecurePassword(), 
+  var encryptedKeyJson = sjcl.codec.base64.fromBits(CTRAESEncript(GetDBSecurePassword(), 
     sjcl.codec.utf8String.toBits(keyJson)));
 
   localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedKeyJson));
@@ -113,7 +113,7 @@ function LoadKeys() {
   var saved = localStorage.getItem('facebook-keys-' + my_username);
   if (saved) {
     var encryptedKeyJson = decodeURIComponent(saved);
-    var keyJson =  sjcl.codec.utf8String.fromBits(AESDecrypt(GetDBSecurePassword(), 
+    var keyJson =  sjcl.codec.utf8String.fromBits(CTRAESDecript(GetDBSecurePassword(), 
       sjcl.codec.base64.toBits(encryptedKeyJson)));
 
     keys = JSON.parse(keyJson);
@@ -178,30 +178,41 @@ function Unpadding(content, blockBits) {
 // @param {bitArray} key of length 256-bit
 // @param {bitArray} plaintext 
 // @return {bitArray} ciphertext 
-function AESEncrypt(key, plaintext) {
+function CTRAESEncript(key, plaintext) {
   var buffer = Padding(plaintext, 128);
   var cipher = new sjcl.cipher.aes(key);
+  var nonce = GetRandomValues(4);
+  var ctr = new Array();
   for (var i = 0; i < buffer.length; i += 4) {
-    var curEncrypted = cipher.encrypt(buffer.slice(i, i + 4));
+    ctr[0] = ctr[1] = ctr[2] = ctr[3] = i;
+
+    var curEncrypted = sjcl.bitArray._xor4(buffer.slice(i, i + 4),
+      cipher.encrypt(sjcl.bitArray._xor4(nonce, ctr)));
+    
     for (var j = 0; j < 4; j++) {
       buffer[i + j] = curEncrypted[j];
     }
-  } 
-  return buffer; 
+  }
+  return sjcl.bitArray.concat(buffer, nonce); 
 }
 
 // @param {bitArray} key of length 
 // @param {bitArray} ciphertext 
 // @return {bitArray} plaintext 
-function AESDecrypt(key, ciphertext) {
+function CTRAESDecript(key, ciphertext) {
   var bitLen = sjcl.bitArray.bitLength(ciphertext);
   if (bitLen % 128 != 0) {
     throw new sjcl.exception.invalid("invalid aes block size");
   }
-  var buffer = new Array(ciphertext.length);
+  var nonce = sjcl.bitArray.bitSlice(ciphertext, bitLen - 128);
+
+  var buffer = new Array(ciphertext.length - 4);
   var cipher = new sjcl.cipher.aes(key);
   for (var i = 0; i < buffer.length; i += 4) {
-    var curDecrypted = cipher.decrypt(ciphertext.slice(i, i + 4));
+    var ctr = new Array();
+    ctr[0] = ctr[1] = ctr[2] = ctr[3] = i;
+    var curDecrypted = sjcl.bitArray._xor4(ciphertext.slice(i, i + 4),
+      cipher.encrypt(sjcl.bitArray._xor4(nonce, ctr)));
     for (var j = 0; j < 4; j++) {
       buffer[i + j] = curDecrypted[j];
     }

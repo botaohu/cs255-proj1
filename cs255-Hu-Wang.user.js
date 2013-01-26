@@ -76,7 +76,7 @@ function Decrypt(cipherText, group) {
     var prf = new sjcl.misc.hmac(key);
     var curMacTag = prf.encrypt(cipherBits);
     if (sjcl.codec.base64.fromBits(macTag) != sjcl.codec.base64.fromBits(curMacTag)) {
-      return "[ALERT] Someone changes the message!"; 
+      return "[ALERT] Someone changes the message! OR Group key changes. "; 
     }
 
     var plainText = sjcl.codec.utf8String.fromBits(CTRAESDecript(key, cipherBits));

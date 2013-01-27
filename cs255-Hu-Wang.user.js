@@ -39,11 +39,12 @@ function Encrypt(plainText, group) {
   // CS255-todo: encrypt the plainText, using key for the group.
   if ((plainText.indexOf(START_TAG) == 0) || (plainText.length < 1)) {
     // already done, or blank
-    alert("Try entering a message (the button works only once)");
+    BuildUIBox("Try entering a message (the button works only once).","OK",false,function(input){});    
     return plainText;
   } else {
     if (keys[group] == undefined) {
-      alert("No such group key found. Please generate one in the account settings.");
+
+    BuildUIBox("No such group key found. Please generate one in the account settings.","OK",false,function(input){});
       return plainText;
     }
     var key = sjcl.codec.base64.toBits(keys[group]);
@@ -66,7 +67,7 @@ function Decrypt(cipherText, group) {
 
   if (cipherText.indexOf(START_TAG) == 0) {
     if (keys[group] == undefined) {
-      alert("No such group key found. Please generate one in the account settings.");
+      BuildUIBox("No such group key found. Please generate one in the account settings.","OK",false,function(input){});   
       return cipherText;
     }
     var key = sjcl.codec.base64.toBits(keys[group]);
@@ -101,10 +102,11 @@ function SaveKeys() {
   
   // CS255-todo: plaintext keys going to disk?
   var keyJson = JSON.stringify(keys);
-  var encryptedKeyJson = sjcl.codec.base64.fromBits(CTRAESEncript(GetDBSecurePassword(), 
+  GetDBSecurePassword(function(key){
+    var encryptedKeyJson = sjcl.codec.base64.fromBits(CTRAESEncript(key, 
     sjcl.codec.utf8String.toBits(keyJson)));
-
-  localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedKeyJson));
+    localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedKeyJson));
+  });
 }
 
 // Load the group keys from disk.
@@ -113,36 +115,122 @@ function LoadKeys() {
   var saved = localStorage.getItem('facebook-keys-' + my_username);
   if (saved) {
     var encryptedKeyJson = decodeURIComponent(saved);
-    var keyJson =  sjcl.codec.utf8String.fromBits(CTRAESDecript(GetDBSecurePassword(), 
+    GetDBSecurePassword(function(key){
+      var keyJson =  sjcl.codec.utf8String.fromBits(CTRAESDecript(key, 
       sjcl.codec.base64.toBits(encryptedKeyJson)));
-
-    keys = JSON.parse(keyJson);
-    console.log(keyJson);
+      keys = JSON.parse(keyJson);
+      console.log(keyJson);
+    });
   } else {
-    console.log("fail to load keys." + my_username);
+    console.log("Prompt to setup new db keys because no keys have been stored for user " + my_username);
+    SaveKeys(); // save empty keys and also ask user to setup db password according to requirement: Allow the user to use a key database password to securely store/load the keys. The ﬁrst time a user visits Facebook with the user script, you should ask them to create a key database password
   }
 }
 
-/** Get DB Secure Password
+/** build a ui with message and an input box
+* @param {String} text_message the message to be displayed in the popup window
+* @param {String} button_text the text label for the button
+* @param {Boolean} has_input_box wheather the popup window has an input box
+* @param {function} callback funtion to call after user clicks the button. The current UIbox will be deleted. You can later open a new UIBox if needed. If has_input_box is true, the parameter of the callback function will be the value input by the user
 * @return {bitArray} 
 */
-function GetDBSecurePassword() {
+function BuildUIBox(text_message,button_text,has_input_box,callback){
+  // to prevent duplicated boxes to be built 
+  if(document.getElementById("255_backdrop") != null){
+    callback();
+    return;
+  }
+  // this is the black backdrop below the UI conversation box
+  var backdrop = document.createElement("div");
+  backdrop.setAttribute("style","width:100%; height:100%; background:rgba(0,0,0,0.5); position:fixed; top:0; z-index:200");
+  backdrop.setAttribute("id","255_backdrop");
+
+  // this is wrapper frame of the texts, input and the button
+  var wrapper_frame = document.createElement("div");
+  wrapper_frame.setAttribute("style","width:400px; min-height:55px;padding:10px; border: 1px solid rgba(29, 49, 91, 0.8); position:fixed; top:50%; margin-top:-50px; background:#ebeef4; left:50%; margin-left: -200px; z-index:300");
+  wrapper_frame.setAttribute("id","255_wrapper_frame");
+
+  // input DOM element
+  var empty_alert;
+  if(has_input_box){
+    var input_field = document.createElement("input");
+    input_field.setAttribute("style","");
+    input_field.setAttribute("type","password");
+    input_field.setAttribute("id","255_input");
+    empty_alert = document.createElement("span");
+    empty_alert.setAttribute("style","color: rgb(173, 43, 43);");
+  }
+
+  // button DOM element
+  var button = document.createElement("div");
+  button.setAttribute("style","color:white; position: absolute; right:10px; bottom:10px; border: 1px solid #999; border-bottom-color: #888; cursor: pointer;display: inline-block;font-size: 11px;font-weight: bold;line-height: 13px;padding: 2px 6px;text-align: center;text-decoration: none;vertical-align: top;white-space: nowrap;background-image: url(https://fbstatic-a.akamaihd.net/rsrc.php/v2/yk/x/weg572Ro6_J.png);background-repeat: no-repeat;background-size: auto;background-position: -352px -495px;background-color: #5b74a8;border-color: #29447e #29447e #1a356e;");
+
+  // attach the click event to the callback function, then remove the backdrop and frame
+  button.onclick = function(){
+    if(has_input_box){
+      var val = document.getElementById('255_input').value;
+      if(val.length < 1){
+        if(empty_alert.innerHTML.length == 0){
+          empty_alert.appendChild(document.createTextNode("input can not be empty"));
+        }
+        return;
+      }
+      callback(val);
+    }else{
+      callback();
+    }
+    var backdrop_element = document.getElementById("255_backdrop");
+    backdrop_element.parentNode.removeChild(backdrop_element);
+    var wrapper_frame_element = document.getElementById("255_wrapper_frame");
+    wrapper_frame_element.parentNode.removeChild(wrapper_frame_element);
+  };
+
+  var button_text=document.createTextNode(button_text);
+  var wrapper_message = document.createElement("div");
+  wrapper_message.setAttribute("style","display: block; padding: 5px 0 5px 0; font-weight: bold; font-size: 12px; border-bottom: 1px dotted #CCC; margin-bottom: 8px;");
+  var message=document.createTextNode(text_message);
+
+  // append everything to HTML body correctly
+  wrapper_message.appendChild(message);
+  button.appendChild(button_text);
+  wrapper_frame.appendChild(wrapper_message);
+  if(has_input_box){
+    wrapper_frame.appendChild(input_field);
+    wrapper_frame.appendChild(empty_alert);
+  }
+  wrapper_frame.appendChild(button);
+  document.body.appendChild(backdrop);
+  document.body.appendChild(wrapper_frame);
+}
+
+/** Get DB Secure Password
+* @param {function} callback, funtion to call after db password is fetched. First parameter in the callback function is the db password bit array
+*/
+function GetDBSecurePassword(callback) {
   var dbSecurePassword = sessionStorage.getItem("dbSecurePassword"); //Stored in base64
-    
   if (dbSecurePassword == null) {
     var salt = sjcl.codec.utf8String.toBits(my_username);
     var isSetup = localStorage.getItem("dbPasswordSetup");
     var dbPassword;
     if (isSetup == null) {
-      dbPassword = prompt('Setup Database Password', '');
-      localStorage.setItem("dbPasswordSetup", "true");
+      BuildUIBox("Please setup your database password. You need to use this password to access youe key data base later.","Confirm",true,function(input){
+        dbPassword = input;
+        localStorage.setItem("dbPasswordSetup", "true");
+        dbSecurePassword = sjcl.codec.base64.fromBits(sjcl.misc.pbkdf2(dbPassword, salt));
+        sessionStorage.setItem("dbSecurePassword", dbSecurePassword);
+        callback(sjcl.codec.base64.toBits(dbSecurePassword));
+      });
     } else {
-      dbPassword = prompt('Database Password?', '');
+      BuildUIBox("Please enter your database password to access this page","Submit",true,function(input){
+        dbPassword = input;
+        dbSecurePassword = sjcl.codec.base64.fromBits(sjcl.misc.pbkdf2(dbPassword, salt));
+        sessionStorage.setItem("dbSecurePassword", dbSecurePassword);
+        callback(sjcl.codec.base64.toBits(dbSecurePassword));
+      });
     }
-    dbSecurePassword = sjcl.codec.base64.fromBits(sjcl.misc.pbkdf2(dbPassword, salt));
-    sessionStorage.setItem("dbSecurePassword", dbSecurePassword);
+  }else{
+    callback(sjcl.codec.base64.toBits(dbSecurePassword));
   }
-  return sjcl.codec.base64.toBits(dbSecurePassword);
 }
 
 // @param {bitArray} content

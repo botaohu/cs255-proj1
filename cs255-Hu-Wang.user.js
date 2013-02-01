@@ -214,33 +214,65 @@ function BuildUIBox(text_message,button_text,has_input_box,callback){
   document.body.appendChild(wrapper_frame);
 }
 
+function ClearDBPassword() {
+    localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbPasswordSetup");
+    localStorage.removeItem('facebook-keys-' + my_username);
+    localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbSecureSalt");
+    localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacTag");
+    localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbMacKey");   
+}
+
 /** Get DB Secure Password
 * @param {function} callback, funtion to call after db password is fetched. First parameter in the callback function is the db password bit array
+* callback(key)
 */
 function GetDBSecurePassword(callback) {
-  var dbSecurePassword = sessionStorage.getItem("dbSecurePassword"); //Stored in base64
-  if (dbSecurePassword == null) {
-    var salt = sjcl.codec.utf8String.toBits(my_username);
-    var isSetup = cs255.localStorage.getItem("dbPasswordSetup");
-    var dbPassword;
-    if (isSetup == null) {
+  var dbSecurePassword_B64 = sessionStorage.getItem('facebook-keys-' + my_username + "-" + "dbSecurePassword"); //Stored in base64
+  if (dbSecurePassword_B64 == null) {
+    var isSetup = localStorage.getItem('facebook-keys-' + my_username + "-" + "dbPasswordSetup");
+    var salt_B64 = localStorage.getItem('facebook-keys-' + my_username + "-" + "dbSecureSalt");
+    var macKey_B64 = localStorage.getItem('facebook-keys-' + my_username + "-" + "dbMacKey");
+    var passMac_B64 = localStorage.getItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacTag");
+
+    if (isSetup == null || salt_B64 == null || macKey_B64 == null || passMac_B64 == null) {
       BuildUIBox("Please setup your database password. You need to use this password to access youe key data base later.","Confirm",true,function(input){
-        dbPassword = input;
-        cs255.localStorage.setItem("dbPasswordSetup", "true");
-        dbSecurePassword = sjcl.codec.base64.fromBits(sjcl.misc.pbkdf2(dbPassword, salt));
-        sessionStorage.setItem("dbSecurePassword", dbSecurePassword);
-        callback(sjcl.codec.base64.toBits(dbSecurePassword));
+        var dbPassword = input;
+        localStorage.setItem('facebook-keys-' + my_username + "-" + "dbPasswordSetup", "true");
+        var salt = GetRandomValues(4);
+        console.log('hi');
+        var dbSecurePassword = sjcl.misc.pbkdf2(dbPassword, salt);
+        console.log('h2i');
+        
+        dbSecurePassword_B64 = sjcl.codec.base64.fromBits(dbSecurePassword);
+        sessionStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePassword", dbSecurePassword_B64);
+        localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecureSalt", sjcl.codec.base64.fromBits(salt));
+        var macKey = GetRandomValues(4);
+        localStorage.setItem('facebook-keys-' + my_username + "-" + "dbMacKey", sjcl.codec.base64.fromBits(macKey));
+        var prf = new sjcl.misc.hmac(macKey);
+        var macTag = prf.encrypt(dbSecurePassword);
+        localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacTag", sjcl.codec.base64.fromBits(macTag));
+        callback(dbSecurePassword);
       });
     } else {
       BuildUIBox("Please enter your database password to access this page","Submit",true,function(input){
-        dbPassword = input;
-        dbSecurePassword = sjcl.codec.base64.fromBits(sjcl.misc.pbkdf2(dbPassword, salt));
-        sessionStorage.setItem("dbSecurePassword", dbSecurePassword);
-        callback(sjcl.codec.base64.toBits(dbSecurePassword));
+        var dbPassword = input;
+        var salt = sjcl.codec.base64.fromBits(salt_B64);
+        var dbSecurePassword = sjcl.misc.pbkdf2(dbPassword, salt);
+        var macKey = sjcl.codec.base64.fromBits(macKey_B64);
+        var passMac = sjcl.codec.base64.fromBits(passMac_B64);
+        var prf = new sjcl.misc.hmac(macKey);
+        var macTag = prf.encrypt(dbSecurePassword);
+        if (!sjcl.bitArray.equal(macTag, passMac)) {
+           alert('not equal!');
+           return -1;
+        } 
+        var dbSecurePassword_B64 = sjcl.codec.base64.fromBits(dbSecurePassword);
+        sessionStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePassword", dbSecurePassword);
+        callback(dbSecurePassword);
       });
     }
   }else{
-    callback(sjcl.codec.base64.toBits(dbSecurePassword));
+    callback(sjcl.codec.base64.toBits(dbSecurePassword_B64));
   }
 }
 
@@ -1776,6 +1808,7 @@ sjcl.hash.sha256.prototype = {
 
 
 // This is the initialization
+ClearDBPassword();
 SetupUsernames();
 LoadKeys();
 AddElements();
@@ -1792,4 +1825,4 @@ if (typeof phantom !== "undefined") {
 }
 
 window.sjcl = sjcl;
-
+window.ClearDBPassword = ClearDBPassword;

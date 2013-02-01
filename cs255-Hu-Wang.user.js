@@ -209,6 +209,7 @@ function ClearDBPassword() {
     localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbSecureSalt");
     localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacTag");
     localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbMacKey");   
+    sessionStorage.removeItem('facebook-keys-' + my_username + "-" + "dbSecurePassword"); 
 }
 
 /** Get DB Secure Password
@@ -228,7 +229,6 @@ function GetDBSecurePassword(callback) {
         var dbPassword = input;
         localStorage.setItem('facebook-keys-' + my_username + "-" + "dbPasswordSetup", "true");
         var salt = GetRandomValues(4);
-        console.log('hi');
         var dbSecurePassword = sjcl.misc.pbkdf2(dbPassword, salt);
         console.log('h2i');
         
@@ -240,6 +240,7 @@ function GetDBSecurePassword(callback) {
         var prf = new sjcl.misc.hmac(macKey);
         var macTag = prf.encrypt(dbSecurePassword);
         localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacTag", sjcl.codec.base64.fromBits(macTag));
+        
         callback(dbSecurePassword);
       });
     } else {

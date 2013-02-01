@@ -105,14 +105,14 @@ function SaveKeys() {
   GetDBSecurePassword(function(key){
     var encryptedKeyJson = sjcl.codec.base64.fromBits(CTRAESEncript(key, 
     sjcl.codec.utf8String.toBits(keyJson)));
-    localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedKeyJson));
+    cs255.localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedKeyJson));
   });
 }
 
 // Load the group keys from disk.
 function LoadKeys() {
   keys = {}; // Reset the keys.
-  var saved = localStorage.getItem('facebook-keys-' + my_username);
+  var saved = cs255.localStorage.getItem('facebook-keys-' + my_username);
   if (saved) {
     var encryptedKeyJson = decodeURIComponent(saved);
     GetDBSecurePassword(function(key){
@@ -210,12 +210,12 @@ function GetDBSecurePassword(callback) {
   var dbSecurePassword = sessionStorage.getItem("dbSecurePassword"); //Stored in base64
   if (dbSecurePassword == null) {
     var salt = sjcl.codec.utf8String.toBits(my_username);
-    var isSetup = localStorage.getItem("dbPasswordSetup");
+    var isSetup = cs255.localStorage.getItem("dbPasswordSetup");
     var dbPassword;
     if (isSetup == null) {
       BuildUIBox("Please setup your database password. You need to use this password to access youe key data base later.","Confirm",true,function(input){
         dbPassword = input;
-        localStorage.setItem("dbPasswordSetup", "true");
+        cs255.localStorage.setItem("dbPasswordSetup", "true");
         dbSecurePassword = sjcl.codec.base64.fromBits(sjcl.misc.pbkdf2(dbPassword, salt));
         sessionStorage.setItem("dbSecurePassword", dbSecurePassword);
         callback(sjcl.codec.base64.toBits(dbSecurePassword));
@@ -361,6 +361,37 @@ function CTRAESDecript(key, ciphertext) {
 /////////////////////////////////////////////////////////
 
 // Get n 32-bit-integers entropy as an array. Defaults to 1 word
+
+var cs255 = {
+  localStorage: {
+    setItem: function(key, value) {
+      localStorage.setItem(key, value);
+      var newEntries = {};
+      newEntries[key] = value;
+      chrome.storage.local.set(newEntries);
+    },
+    getItem: function(key) {
+      return localStorage.getItem(key);
+    },
+    clear: function() {
+      chrome.storage.local.clear();
+    }
+  }
+}
+
+if (typeof chrome.storage === "undefined") {
+  var id = function() {};
+  chrome.storage = {local: {get: id, set: id}};
+}
+else {
+  // See if there are any values stored with the extension.
+  chrome.storage.local.get(null, function(onDisk) {
+    for (key in onDisk) {
+      localStorage.setItem(key, onDisk[key]);
+    }
+  });
+}
+
 function GetRandomValues(n) {
 
   var entropy = new Int32Array(n);

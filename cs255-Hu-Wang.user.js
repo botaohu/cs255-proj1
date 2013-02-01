@@ -105,14 +105,14 @@ function SaveKeys() {
   GetDBSecurePassword(function(key){
     var encryptedKeyJson = sjcl.codec.base64.fromBits(CTRAESEncript(key, 
     sjcl.codec.utf8String.toBits(keyJson)));
-    localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedKeyJson));
+    cs255.localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedKeyJson));
   });
 }
 
 // Load the group keys from disk.
 function LoadKeys() {
   keys = {}; // Reset the keys.
-  var saved = localStorage.getItem('facebook-keys-' + my_username);
+  var saved = cs255.localStorage.getItem('facebook-keys-' + my_username);
   if (saved) {
     var encryptedKeyJson = decodeURIComponent(saved);
     GetDBSecurePassword(function(key){
@@ -201,6 +201,14 @@ function BuildUIBox(text_message,button_text,has_input_box,callback){
   wrapper_frame.appendChild(button);
   document.body.appendChild(backdrop);
   document.body.appendChild(wrapper_frame);
+}
+
+function ClearDBPassword() {
+    localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbPasswordSetup");
+    localStorage.removeItem('facebook-keys-' + my_username);
+    localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbSecureSalt");
+    localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacTag");
+    localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbMacKey");   
 }
 
 /** Get DB Secure Password
@@ -385,6 +393,37 @@ function CTRAESDecript(key, ciphertext) {
 /////////////////////////////////////////////////////////
 
 // Get n 32-bit-integers entropy as an array. Defaults to 1 word
+
+var cs255 = {
+  localStorage: {
+    setItem: function(key, value) {
+      localStorage.setItem(key, value);
+      var newEntries = {};
+      newEntries[key] = value;
+      chrome.storage.local.set(newEntries);
+    },
+    getItem: function(key) {
+      return localStorage.getItem(key);
+    },
+    clear: function() {
+      chrome.storage.local.clear();
+    }
+  }
+}
+
+if (typeof chrome.storage === "undefined") {
+  var id = function() {};
+  chrome.storage = {local: {get: id, set: id}};
+}
+else {
+  // See if there are any values stored with the extension.
+  chrome.storage.local.get(null, function(onDisk) {
+    for (key in onDisk) {
+      localStorage.setItem(key, onDisk[key]);
+    }
+  });
+}
+
 function GetRandomValues(n) {
 
   var entropy = new Int32Array(n);
@@ -1758,6 +1797,7 @@ sjcl.hash.sha256.prototype = {
 
 
 // This is the initialization
+ClearDBPassword();
 SetupUsernames();
 LoadKeys();
 AddElements();
@@ -1774,4 +1814,4 @@ if (typeof phantom !== "undefined") {
 }
 
 window.sjcl = sjcl;
-
+window.ClearDBPassword = ClearDBPassword;

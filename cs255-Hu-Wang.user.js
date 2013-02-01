@@ -12,6 +12,15 @@
 // @exclude        https://www.facebook.com/events/*
 // ==/UserScript==
 
+// steve_cjsalbv_whittaker@tfbnw.net
+// 1365861199
+
+// jennifer_ozopcct_widom@tfbnw.net
+// 1864764316
+
+// janyce_xisstou_wiebe@tfbnw.net
+// 330359861
+
 /*
   Step 1: change @namespace, @name, and @description above.
   Step 2: Change the filename to the format "CS255-Lastname1-Lastname2.user.js"
@@ -122,8 +131,10 @@ function LoadKeys() {
       console.log(keyJson);
     });
   } else {
-    console.log("Prompt to setup new db keys because no keys have been stored for user " + my_username);
-    SaveKeys(); // save empty keys and also ask user to setup db password according to requirement: Allow the user to use a key database password to securely store/load the keys. The ﬁrst time a user visits Facebook with the user script, you should ask them to create a key database password
+    if(typeof my_username !== "undefined"){ // make sure user already login
+      console.log("Prompt to setup new db keys because no keys have been stored for user " + my_username);
+      SaveKeys(); // save empty keys and also ask user to setup db password according to requirement: Allow the user to use a key database password to securely store/load the keys. The ﬁrst time a user visits Facebook with the user script, you should ask them to create a key database password
+    }
   }
 }
 

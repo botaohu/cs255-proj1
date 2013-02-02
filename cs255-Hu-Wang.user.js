@@ -221,6 +221,7 @@ function ClearDBPassword() {
     localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacTag");
     localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbMacKey");   
     sessionStorage.removeItem('facebook-keys-' + my_username + "-" + "dbSecurePassword"); 
+    console.log('clearpage');
 }
 
 /** Get DB Secure Password
@@ -229,6 +230,7 @@ function ClearDBPassword() {
 */
 function GetDBSecurePassword(callback) {
   var dbSecurePassword_B64 = sessionStorage.getItem('facebook-keys-' + my_username + "-" + "dbSecurePassword"); //Stored in base64
+  
   if (dbSecurePassword_B64 == null) {
     var isSetup = localStorage.getItem('facebook-keys-' + my_username + "-" + "dbPasswordSetup");
     var salt_B64 = localStorage.getItem('facebook-keys-' + my_username + "-" + "dbSecureSalt");

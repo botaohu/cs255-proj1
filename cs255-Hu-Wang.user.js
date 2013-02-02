@@ -1815,9 +1815,11 @@ sjcl.hash.sha256.prototype = {
   }
 };
 
+window.sjcl = sjcl;
+window.ClearDBPassword = ClearDBPassword;
 
 // This is the initialization
-ClearDBPassword();
+//ClearDBPassword();
 SetupUsernames();
 LoadKeys();
 AddElements();
@@ -1833,5 +1835,3 @@ if (typeof phantom !== "undefined") {
   phantom.exit();
 }
 
-window.sjcl = sjcl;
-window.ClearDBPassword = ClearDBPassword;

@@ -161,23 +161,8 @@ function BuildUIBox(text_message,button_text,has_input_box,callback){
   wrapper_frame.setAttribute("style","width:400px; min-height:55px;padding:10px; border: 1px solid rgba(29, 49, 91, 0.8); position:fixed; top:50%; margin-top:-50px; background:#ebeef4; left:50%; margin-left: -200px; z-index:300");
   wrapper_frame.setAttribute("id","255_wrapper_frame");
 
-  // input DOM element
-  var empty_alert;
-  if(has_input_box){
-    var input_field = document.createElement("input");
-    input_field.setAttribute("style","");
-    input_field.setAttribute("type","password");
-    input_field.setAttribute("id","255_input");
-    empty_alert = document.createElement("span");
-    empty_alert.setAttribute("style","color: rgb(173, 43, 43);");
-  }
-
-  // button DOM element
-  var button = document.createElement("div");
-  button.setAttribute("style","color:white; position: absolute; right:10px; bottom:10px; border: 1px solid #999; border-bottom-color: #888; cursor: pointer;display: inline-block;font-size: 11px;font-weight: bold;line-height: 13px;padding: 2px 6px;text-align: center;text-decoration: none;vertical-align: top;white-space: nowrap;background-image: url(https://fbstatic-a.akamaihd.net/rsrc.php/v2/yk/x/weg572Ro6_J.png);background-repeat: no-repeat;background-size: auto;background-position: -352px -495px;background-color: #5b74a8;border-color: #29447e #29447e #1a356e;");
-
-  // attach the click event to the callback function, then remove the backdrop and frame
-  button.onclick = function(){
+  var return_callback = function(){
+    console.log("returning callback");
     if(has_input_box){
       var val = document.getElementById('255_input').value;
       if(val.length < 1){
@@ -195,6 +180,27 @@ function BuildUIBox(text_message,button_text,has_input_box,callback){
     var wrapper_frame_element = document.getElementById("255_wrapper_frame");
     wrapper_frame_element.parentNode.removeChild(wrapper_frame_element);
   };
+
+  // input DOM element
+  var empty_alert;
+  if(has_input_box){
+    var input_field = document.createElement("input");
+    input_field.setAttribute("style","");
+    input_field.setAttribute("type","password");
+    input_field.setAttribute("id","255_input");
+    empty_alert = document.createElement("span");
+    empty_alert.setAttribute("style","color: rgb(173, 43, 43);");
+    input_field.onkeypress = function(){
+      if(event.keyCode == 13) return_callback();
+    };
+  }
+
+  // button DOM element
+  var button = document.createElement("div");
+  button.setAttribute("style","color:white; position: absolute; right:10px; bottom:10px; border: 1px solid #999; border-bottom-color: #888; cursor: pointer;display: inline-block;font-size: 11px;font-weight: bold;line-height: 13px;padding: 2px 6px;text-align: center;text-decoration: none;vertical-align: top;white-space: nowrap;background-image: url(https://fbstatic-a.akamaihd.net/rsrc.php/v2/yk/x/weg572Ro6_J.png);background-repeat: no-repeat;background-size: auto;background-position: -352px -495px;background-color: #5b74a8;border-color: #29447e #29447e #1a356e;");
+
+  // attach the click event to the callback function, then remove the backdrop and frame
+  button.onclick = return_callback;
 
   var button_text=document.createTextNode(button_text);
   var wrapper_message = document.createElement("div");

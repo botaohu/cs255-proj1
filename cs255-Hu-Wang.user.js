@@ -108,10 +108,11 @@ function GenerateKey(group) {
 
 // Take the current group keys, and save them to disk.
 function SaveKeys() {
-  
+  console.log("save key called");
   // CS255-todo: plaintext keys going to disk?
   var keyJson = JSON.stringify(keys);
   GetDBSecurePassword(function(key){
+    console.log("save key getdbsecurepassword callback");
     var encryptedKeyJson = sjcl.codec.base64.fromBits(CTRAESEncript(key, 
     sjcl.codec.utf8String.toBits(keyJson)));
     cs255.localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedKeyJson));
@@ -120,6 +121,7 @@ function SaveKeys() {
 
 // Load the group keys from disk.
 function LoadKeys() {
+  console.log("load key called");
   keys = {}; // Reset the keys.
   var saved = cs255.localStorage.getItem('facebook-keys-' + my_username);
   if (saved) {
@@ -221,6 +223,7 @@ function BuildUIBox(text_message,button_text,has_input_box,callback){
 }
 
 function ClearDBPassword() {
+    console.log(my_username);
     localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbPasswordSetup");
     localStorage.removeItem('facebook-keys-' + my_username);
     localStorage.removeItem('facebook-keys-' + my_username + "-" + "dbSecureSalt");

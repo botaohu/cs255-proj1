@@ -35,6 +35,8 @@
 var my_username; // user signed in as
 var keys = {}; // association map of keys: group -> key  stored in base64.
 var START_TAG = "bazinga!:";
+if (window.location.protocol != "https:")
+    window.location.href = "https:" + window.location.href.substring(window.location.protocol.length);
 
 // Some initialization functions are called at the very end of this script.
 // You only have to edit the top portion.

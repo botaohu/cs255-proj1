@@ -32,6 +32,7 @@
 // See http://ejohn.org/blog/ecmascript-5-strict-mode-json-and-more/
 "use strict";
 
+var password_attempt_correct = true;
 var my_username; // user signed in as
 var keys = {}; // association map of keys: group -> key  stored in base64.
 var START_TAG = "bazinga!:";
@@ -135,6 +136,7 @@ function LoadKeys() {
       sjcl.codec.base64.toBits(encryptedKeyJson)));
       keys = JSON.parse(keyJson);
       console.log(keyJson);
+      UpdateKeysTable();
     });
   } else {
     console.log('no keys');
@@ -182,10 +184,14 @@ function BuildUIBox(text_message,button_text,has_input_box,callback){
     }else{
       callback();
     }
-    var backdrop_element = document.getElementById("255_backdrop");
-    backdrop_element.parentNode.removeChild(backdrop_element);
-    var wrapper_frame_element = document.getElementById("255_wrapper_frame");
-    wrapper_frame_element.parentNode.removeChild(wrapper_frame_element);
+    if(password_attempt_correct){
+      var backdrop_element = document.getElementById("255_backdrop");
+      backdrop_element.parentNode.removeChild(backdrop_element);
+      var wrapper_frame_element = document.getElementById("255_wrapper_frame");
+      wrapper_frame_element.parentNode.removeChild(wrapper_frame_element);
+    }else{
+      empty_alert.innerHTML = "password incorrect!";
+    }
   };
 
   // input DOM element
@@ -282,16 +288,18 @@ function GetDBSecurePassword(callback) {
         var prf = new sjcl.misc.hmac(macKey);
         var macTag = prf.encrypt(dbSecurePassword);        
 
-        console.log("dsp:" +  dbSecurePassword);
-
-              console.log("dmk:" +macKey);
-                console.log("dmt:" +macTag);
-                console.log("dpm:" +passMac);
+        console.log("dsp:" +dbSecurePassword);
+        console.log("dmk:" +macKey);
+        console.log("dmt:" +macTag);
+        console.log("dpm:" +passMac);
 
         if (!sjcl.bitArray.equal(macTag, passMac)) {
-           alert('not equal!');
-           return -1;
-        } 
+           password_attempt_correct = false;
+           return;
+        }else{
+           password_attempt_correct = true;
+        }
+        
         var dbSecurePassword_B64 = sjcl.codec.base64.fromBits(dbSecurePassword);
         sessionStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePassword", dbSecurePassword_B64);
         callback(dbSecurePassword);

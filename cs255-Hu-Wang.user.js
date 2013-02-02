@@ -111,37 +111,37 @@ function GenerateKey(group) {
 
 // Take the current group keys, and save them to disk.
 function SaveKeys() {
-  console.log("save key called");
+  //console.log("save key called");
   // CS255-todo: plaintext keys going to disk?
   var keyJson = JSON.stringify(keys);
   GetDBSecurePassword(function(key){
-    console.log("save key getdbsecurepassword callback");
+    //console.log("save key getdbsecurepassword callback");
     var encryptedKeyJson = sjcl.codec.base64.fromBits(CTRAESEncript(key, 
     sjcl.codec.utf8String.toBits(keyJson)));
     cs255.localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedKeyJson));
-    console.log('save key to' + my_username);
+    //console.log('save key to' + my_username);
   });
 }
 
 // Load the group keys from disk.
 function LoadKeys() {
-  console.log("load key called");
+  //console.log("load key called");
   keys = {}; // Reset the keys.
   var saved = cs255.localStorage.getItem('facebook-keys-' + my_username);
   if (saved) {
-    console.log('saved' + saved);
+    //console.log('saved' + saved);
     var encryptedKeyJson = decodeURIComponent(saved);
     GetDBSecurePassword(function(key){
       var keyJson =  sjcl.codec.utf8String.fromBits(CTRAESDecript(key, 
       sjcl.codec.base64.toBits(encryptedKeyJson)));
       keys = JSON.parse(keyJson);
-      console.log(keyJson);
+      //console.log(keyJson);
       UpdateKeysTable();
     });
   } else {
-    console.log('no keys');
+    //console.log('no keys');
     if(typeof my_username !== "undefined"){ // make sure user already login
-      console.log("Prompt to setup new db keys because no keys have been stored for user " + my_username);
+      //console.log("Prompt to setup new db keys because no keys have been stored for user " + my_username);
       SaveKeys(); // save empty keys and also ask user to setup db password according to requirement: Allow the user to use a key database password to securely store/load the keys. The ﬁrst time a user visits Facebook with the user script, you should ask them to create a key database password
     }
   }
@@ -171,7 +171,7 @@ function BuildUIBox(text_message,button_text,has_input_box,callback){
   wrapper_frame.setAttribute("id","255_wrapper_frame");
 
   var return_callback = function(){
-    console.log("returning callback");
+    //console.log("returning callback");
     if(has_input_box){
       var val = document.getElementById('255_input').value;
       if(val.length < 1){
@@ -233,6 +233,7 @@ function BuildUIBox(text_message,button_text,has_input_box,callback){
   document.body.appendChild(wrapper_frame);
 }
 
+/** clear passwords in both session and local storage (for debug) **/
 function ClearDBPassword() {
     cs255.localStorage.clear();
     sessionStorage.removeItem('facebook-keys-' + my_username + "-" + "dbSecurePassword"); 
@@ -260,7 +261,7 @@ function GetDBSecurePassword(callback) {
         cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbPasswordSetup", "true");
         var salt = GetRandomValues(4);
         var dbSecurePassword = sjcl.misc.pbkdf2(dbPassword, salt);
-        console.log('h2i');
+        //console.log('h2i');
 
         dbSecurePassword_B64 = sjcl.codec.base64.fromBits(dbSecurePassword);
         sessionStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePassword", dbSecurePassword_B64);
@@ -272,9 +273,9 @@ function GetDBSecurePassword(callback) {
         cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacTag", sjcl.codec.base64.fromBits(macTag));
         
 
-        console.log("sp:" +  dbSecurePassword);
-                console.log("mk:" +macKey);
-                console.log("mt:" +macTag);
+        //console.log("sp:" +  dbSecurePassword);
+        //console.log("mk:" +macKey);
+        //console.log("mt:" +macTag);
 
         callback(dbSecurePassword);
       });
@@ -288,10 +289,10 @@ function GetDBSecurePassword(callback) {
         var prf = new sjcl.misc.hmac(macKey);
         var macTag = prf.encrypt(dbSecurePassword);        
 
-        console.log("dsp:" +dbSecurePassword);
-        console.log("dmk:" +macKey);
-        console.log("dmt:" +macTag);
-        console.log("dpm:" +passMac);
+        //console.log("dsp:" +dbSecurePassword);
+        //console.log("dmk:" +macKey);
+        //console.log("dmt:" +macTag);
+        //console.log("dpm:" +passMac);
 
         if (!sjcl.bitArray.equal(macTag, passMac)) {
            password_attempt_correct = false;
@@ -299,15 +300,14 @@ function GetDBSecurePassword(callback) {
         }else{
            password_attempt_correct = true;
         }
-        
+
         var dbSecurePassword_B64 = sjcl.codec.base64.fromBits(dbSecurePassword);
         sessionStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePassword", dbSecurePassword_B64);
         callback(dbSecurePassword);
       });
     }
   }else{
-    console.log("sssp:" +  sjcl.codec.base64.toBits(dbSecurePassword_B64));
-        
+    //console.log("sssp:" +  sjcl.codec.base64.toBits(dbSecurePassword_B64));  
     callback(sjcl.codec.base64.toBits(dbSecurePassword_B64));
   }
 }
@@ -521,7 +521,7 @@ function SetupUsernames() {
     usernameMatched = usernameMatched.replace(/\?/, '');
     usernameMatched = usernameMatched.replace(/profile\.phpid=/, '');
     my_username = usernameMatched; // Update global.
-    console.log(my_username);
+    //console.log(my_username);
   }
 }
 

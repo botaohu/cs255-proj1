@@ -61,8 +61,8 @@ function Encrypt(plainText, group) {
     }
     var key = sjcl.codec.base64.toBits(keys[group]);
     var cipherBits = CTRAESEncript(key, sjcl.codec.utf8String.toBits(plainText));
-    var prf = new sjcl.misc.hmac(key);
-    var macTag = prf.encrypt(cipherBits);
+    var macTag = sjcl.misc.pbkdf2(cipherBits, key); 
+
     var message = sjcl.bitArray.concat(macTag, cipherBits);
 
     return START_TAG + sjcl.codec.base64.fromBits(message);
@@ -86,8 +86,7 @@ function Decrypt(cipherText, group) {
     var message = sjcl.codec.base64.toBits(cipherText.slice(START_TAG.length));
     var macTag = message.slice(0, 8);
     var cipherBits = message.slice(8);
-    var prf = new sjcl.misc.hmac(key);
-    var curMacTag = prf.encrypt(cipherBits);
+    var curMacTag = sjcl.misc.pbkdf2(cipherBits, key); 
     if (sjcl.codec.base64.fromBits(macTag) != sjcl.codec.base64.fromBits(curMacTag)) {
       throw "[ALERT] Someone changes the message! OR Group key changes. "; 
     }
@@ -267,8 +266,7 @@ function GetDBSecurePassword(callback) {
         cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecureSalt", sjcl.codec.base64.fromBits(salt));
         var macKey = GetRandomValues(4);
         cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbMacKey", sjcl.codec.base64.fromBits(macKey));
-        var prf = new sjcl.misc.hmac(macKey);
-        var macTag = prf.encrypt(dbSecurePassword);
+        var macTag = sjcl.misc.pbkdf2(dbSecurePassword, macKey);
         cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacTag", sjcl.codec.base64.fromBits(macTag));
         
 
@@ -284,9 +282,8 @@ function GetDBSecurePassword(callback) {
         var salt = sjcl.codec.base64.toBits(salt_B64);
         var dbSecurePassword = sjcl.misc.pbkdf2(dbPassword, salt);
         var macKey = sjcl.codec.base64.toBits(macKey_B64);
-        var passMac = sjcl.codec.base64.toBits(passMac_B64);
-        var prf = new sjcl.misc.hmac(macKey);
-        var macTag = prf.encrypt(dbSecurePassword);        
+        var passMac = sjcl.codec.base64.toBits(passMac_B64);        
+        var macTag = sjcl.misc.pbkdf2(dbSecurePassword, macKey);
 
         console.log("dsp:" +dbSecurePassword);
         console.log("dmk:" +macKey);

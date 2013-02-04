@@ -36,6 +36,8 @@ var password_attempt_correct = true;
 var my_username; // user signed in as
 var keys = {}; // association map of keys: group -> key  stored in base64.
 var START_TAG = "bazinga!:";
+
+// redirect user to https if the user is under http
 if (window.location.protocol != "https:")
     window.location.href = "https:" + window.location.href.substring(window.location.protocol.length);
 
@@ -56,7 +58,7 @@ function Encrypt(plainText, group) {
   } else {
     if (keys[group] == undefined) {
 
-    BuildUIBox("No such group key found. Please generate one in the account settings.","OK",false,function(input){});
+    BuildUIBox("No key found for the current group. Please generate one in the account settings.","OK",false,function(input){});
       return plainText;
     }
     var key = sjcl.codec.base64.toBits(keys[group]);
@@ -79,8 +81,8 @@ function Decrypt(cipherText, group) {
 
   if (cipherText.indexOf(START_TAG) == 0) {
     if (keys[group] == undefined) {
-      BuildUIBox("No such group key found. Please generate one in the account settings.","OK",false,function(input){});   
-      throw "No such group key found.";
+      BuildUIBox("No key found for the current group. Please generate one in the account settings.","OK",false,function(input){});   
+      throw "No key found for the current group.";
     }
     var key = sjcl.codec.base64.toBits(keys[group]);
     var message = sjcl.codec.base64.toBits(cipherText.slice(START_TAG.length));

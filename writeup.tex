@@ -65,7 +65,7 @@ To verify if the user enters their password correctly, we generate a MAC tag (us
 
 \subsection{How to maintain a secure database for the group keys?}
 We used the encrypted database keys to encrypt and decrypt groups keys on the fly without storing the encrypted database key in localStorage, which is shown in figure \ref{fig:db}. We encrypt and decrypt the group keys in nonce-based counter mode with AES.  In this way the attacker has no way to find out what the encrypted database key is given the cipher text if the block cipher under counter mode is secure. 
-In addition, to prevent to leak the group name information, we encrypt and decrypt the whole JSON string of the hash table of all group keys. For integrity, we use the same MAC technology in section \ref{sec:verify} to ensure the integrity of the data.
+In addition, to prevent to leak the group name information, we encrypt and decrypt the whole JSON string of the hash table of all group keys. For integrity, we use the same MAC technology with a seperate key in section \ref{sec:verify} to ensure the integrity of the data.
 \begin{figure}[h!]
 \centering
 \caption{Maintain the database of group keys}
@@ -76,9 +76,9 @@ In addition, to prevent to leak the group name information, we encrypt and decry
 \subsection{What would happen if the attacker has access to localStorage and other locally stored materials? }
 The assumption here is that the attacker has access to all locally stored materials after the user closes the session (browser tab). Namely, the locally stored information includes the encrypted database of  group keys, the salt of the database password, the MAC key, and the MAC tag for the encrypted database password. The attacker can not get significant information about the group keys because the encrypted database key is not stored locally, and he can not recover the encrypted database key from a secure MAC function without exhaustive search. He's not able to understand the encrypted database without knowing the encrypted database key as the nonce-based counter mode is secure under CPA attack. 
 
-
 \subsection{How we implement the block cipher for group message and make sure it is safe against CPA attack?}
-We implemented nonce-based counter mode (CTR) using AES to encrypt and decrypt group messages using the group keys, which is shown in figure \ref{fig:msg_enc} and \ref{fig:msg_dec}. For integrity, we use the MAC to ensure the integrity of the data.
+We implemented nonce-based counter mode (CTR) using AES to encrypt and decrypt group messages using the group keys, which is shown in figure \ref{fig:msg_enc} and \ref{fig:msg_dec}. 
+For integrity, we use the MAC with a seperate key to ensure the integrity of the data.
 
 By Counter-mode Theorem, due to $AES$ is a secure PRP over $(K,X,X)$, CTR has semantic security under $q$ queries of CPA over $(K,X^L,X^{L+1})$ as long as $q^2L \ll |X|$. 
 So such mode is proved to be secure.
@@ -105,8 +105,8 @@ So such mode is proved to be secure.
 \includegraphics[width=8cm]{fig/padding.eps}
 \end{figure}
 
-The figure \ref{fig:padding} shows how we implement the block padding.We suppose the block size is 256 bits and the text in the last block is occupied the first $p$ bits. If $p \le 256 - 8$, we set the last byte of the last block is the length $L = 256 - p - 8$ of the random pad. Then we fill $L$ random bits between the last byte and the end of the text. 
-If $p \ge 256 - 8$, we will append a new block, and set the last byte of the last block is the length $L = 512 - p - 8$, and fill $L$ random bits between the last byte and the end of the text. 
+The figure \ref{fig:padding} shows how we implement the block padding. We suppose the block size is 256 bits and the text in the last block is occupied the first $p$ bits. If $p \le 256 - 8$, we set the last byte of the last block is the length $L = 256 - p - 8$ of the random pad. Then we fill $L$ random bits between the last byte and the end of the text. 
+If $p > 256 - 8$, we will append a new block, and set the last byte of the last block is the length $L = 512 - p - 8$, and fill $L$ random bits between the last byte and the end of the text. 
 
 \subsection{How we generate keys?}
 The \texttt{Math.random()} function from javascript is not random. So we use the \texttt{crypto} library from Chrome to generate random keys. 

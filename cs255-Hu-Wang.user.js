@@ -61,9 +61,13 @@ function Encrypt(plainText, group) {
     BuildUIBox("No key found for the current group. Please generate one in the account settings.","OK",false,function(input){});
       return plainText;
     }
-    var key = sjcl.codec.base64.toBits(keys[group]);
+    var groupKey = sjcl.codec.base64.toBits(keys[group]);
+    //The first 256-bit of the groupKey is key for AES
+    //The second 256-bit of the groupKey is key for MAC
+    var key = sjcl.bitArray.bitSlice(groupKey, 0, 256);
+    var macKey = sjcl.bitArray.bitSlice(groupKey, 256);
     var cipherBits = CTRAESEncript(key, sjcl.codec.utf8String.toBits(plainText));
-    var macTag = sjcl.misc.pbkdf2(cipherBits, key); 
+    var macTag = sjcl.misc.pbkdf2(cipherBits, macKey); 
 
     var message = sjcl.bitArray.concat(macTag, cipherBits);
 
@@ -84,11 +88,15 @@ function Decrypt(cipherText, group) {
       BuildUIBox("No key found for the current group. Please generate one in the account settings.","OK",false,function(input){});   
       throw "No key found for the current group.";
     }
-    var key = sjcl.codec.base64.toBits(keys[group]);
+    var groupKey = sjcl.codec.base64.toBits(keys[group]);
+    //The first 256-bit of the groupKey is key for AES
+    //The second 256-bit of the groupKey is key for MAC
+    var key = sjcl.bitArray.bitSlice(groupKey, 0, 256);
+    var macKey = sjcl.bitArray.bitSlice(groupKey, 256);
     var message = sjcl.codec.base64.toBits(cipherText.slice(START_TAG.length));
     var macTag = message.slice(0, 8);
     var cipherBits = message.slice(8);
-    var curMacTag = sjcl.misc.pbkdf2(cipherBits, key); 
+    var curMacTag = sjcl.misc.pbkdf2(cipherBits, macKey); 
     if (sjcl.codec.base64.fromBits(macTag) != sjcl.codec.base64.fromBits(curMacTag)) {
       throw "[ALERT] Someone changes the message! OR Group key changes. "; 
     }
@@ -105,7 +113,7 @@ function Decrypt(cipherText, group) {
 //
 // @param {String} group Group name.
 function GenerateKey(group) {
-  var key = sjcl.codec.base64.fromBits(GetRandomValues(8));
+  var key = sjcl.codec.base64.fromBits(GetRandomValues(16));
   keys[group] = key;
   SaveKeys();
 }

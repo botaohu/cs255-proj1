@@ -140,9 +140,9 @@ function LoadKeys() {
     //console.log('saved' + saved);
     GetDBSecurePassword(function(key){
       var encryptedKeyJson = sjcl.codec.base64.toBits(decodeURIComponent(saved));
-      var passMac = sjcl.codec.base64.toBits(passMac_B64);        
+      var passMac = sjcl.codec.base64.toBits(passMac_B64);    
+      var macKey = sjcl.codec.base64.toBits(macKey_B64);    
       var macTag = sjcl.misc.pbkdf2(encryptedKeyJson, macKey);
-      var macKey = sjcl.codec.base64.toBits(macKey_B64);
 
       if (!sjcl.bitArray.equal(macTag, passMac)) {
           alert('Database has no integrity.')  

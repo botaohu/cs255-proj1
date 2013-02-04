@@ -4,7 +4,7 @@
 // @description    CS255-Hu-Wang - CS255 Assignment 1
 // @version        1.4
 //
-// 
+// @include        http://www.facebook.com/*
 // @include        https://www.facebook.com/*
 // @exclude        http://www.facebook.com/messages/*
 // @exclude        https://www.facebook.com/messages/*
@@ -115,11 +115,15 @@ function SaveKeys() {
   //console.log("save key called");
   // CS255-todo: plaintext keys going to disk?
   var keyJson = JSON.stringify(keys);
+
   GetDBSecurePassword(function(key){
     //console.log("save key getdbsecurepassword callback");
-    var encryptedKeyJson = sjcl.codec.base64.fromBits(CTRAESEncript(key, 
-    sjcl.codec.utf8String.toBits(keyJson)));
-    cs255.localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedKeyJson));
+    var encryptedKeyJson = CTRAESEncript(key, sjcl.codec.utf8String.toBits(keyJson));
+    cs255.localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(sjcl.codec.base64.fromBits(encryptedKeyJson)));
+    var macKey = GetRandomValues(4);
+    cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbMacKey", sjcl.codec.base64.fromBits(macKey));
+    var macTag = sjcl.misc.pbkdf2(encryptedKeyJson, macKey);
+    cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbMacTag", sjcl.codec.base64.fromBits(macTag));
     //console.log('save key to' + my_username);
   });
 }
@@ -129,12 +133,23 @@ function LoadKeys() {
   //console.log("load key called");
   keys = {}; // Reset the keys.
   var saved = cs255.localStorage.getItem('facebook-keys-' + my_username);
-  if (saved) {
+  var macKey_B64 = cs255.localStorage.getItem('facebook-keys-' + my_username + "-" + "dbMacKey");
+  var passMac_B64 = cs255.localStorage.getItem('facebook-keys-' + my_username + "-" + "dbMacTag");
+
+  if (saved != null && macKey_B64 != null && passMac_B64 != null) {
     //console.log('saved' + saved);
-    var encryptedKeyJson = decodeURIComponent(saved);
     GetDBSecurePassword(function(key){
-      var keyJson =  sjcl.codec.utf8String.fromBits(CTRAESDecript(key, 
-      sjcl.codec.base64.toBits(encryptedKeyJson)));
+      var encryptedKeyJson = sjcl.codec.base64.toBits(decodeURIComponent(saved));
+      var passMac = sjcl.codec.base64.toBits(passMac_B64);        
+      var macTag = sjcl.misc.pbkdf2(encryptedKeyJson, macKey);
+      var macKey = sjcl.codec.base64.toBits(macKey_B64);
+
+      if (!sjcl.bitArray.equal(macTag, passMac)) {
+          alert('Database has no integrity.')  
+         return;
+      }
+
+      var keyJson =  sjcl.codec.utf8String.fromBits(CTRAESDecript(key, encryptedKeyJson));
       keys = JSON.parse(keyJson);
       //console.log(keyJson);
       UpdateKeysTable();
@@ -253,7 +268,7 @@ function GetDBSecurePassword(callback) {
   if (dbSecurePassword_B64 == null) {
     var isSetup = cs255.localStorage.getItem('facebook-keys-' + my_username + "-" + "dbPasswordSetup");
     var salt_B64 = cs255.localStorage.getItem('facebook-keys-' + my_username + "-" + "dbSecureSalt");
-    var macKey_B64 = cs255.localStorage.getItem('facebook-keys-' + my_username + "-" + "dbMacKey");
+    var macKey_B64 = cs255.localStorage.getItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacKey");
     var passMac_B64 = cs255.localStorage.getItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacTag");
 
     if (isSetup == null || salt_B64 == null || macKey_B64 == null || passMac_B64 == null) {
@@ -268,7 +283,7 @@ function GetDBSecurePassword(callback) {
         sessionStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePassword", dbSecurePassword_B64);
         cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecureSalt", sjcl.codec.base64.fromBits(salt));
         var macKey = GetRandomValues(4);
-        cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbMacKey", sjcl.codec.base64.fromBits(macKey));
+        cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacKey", sjcl.codec.base64.fromBits(macKey));
         var macTag = sjcl.misc.pbkdf2(dbSecurePassword, macKey);
         cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacTag", sjcl.codec.base64.fromBits(macTag));
         

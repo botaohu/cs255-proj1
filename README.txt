@@ -1,6 +1,6 @@
 Team members:
 
-Botao Hu (botao.a.hu@gmail.com)
+Botao Hu (botaohu@stanford.edu)
 Borui Wang (borui@stanford.edu)
 
 Special Instructions:

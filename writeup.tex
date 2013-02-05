@@ -124,7 +124,9 @@ We might still want to do it anyhow because \texttt{crypo} on the client saves t
 \subsection{Running Program}
 
 We created our own UI imitating the original facebook style. We designed the UI to follow the exact requirement of this assignment. Namely, when user logs in, she has to setup a database password if she hasn't done so. Once the password is setup, she has to enter the password to proceed to view the page on each new browser tab. If the password is wrong, she won't be able to continue and the UI reflects the wrong password. If no key is found in a group, we show a message box to indicate the user to create one. 
-We didn't change the workflow of group key creation. So the user, say $A$, could generate a new group key in account setting page. If the other user $B$ want to see the encrypted message sent by $A$, she has to add the same group key of $A$ in $B$'s account setting page.
+We didn't change the workflow of group key creation. So the user, say $A$, could generate a new group key in account setting page. If the other user $B$ want to see the encrypted message sent by $A$, she has to add the same group key of $A$ in $B$'s account setting page. 
+
+Because we can not modify the UI logic of the starter code in the submission, there is a small issue of user experience, i.e., if you enter the group page directly by url, we will prompt you to enter your password; and after that, you will not immediately see the decrypted messages. You have to refresh the page for activating the decryption of the message with your just entered password. 
 
 \subsection{Code}
 

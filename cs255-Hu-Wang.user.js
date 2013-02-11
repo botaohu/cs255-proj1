@@ -63,11 +63,11 @@ function Encrypt(plainText, group) {
     }
     var groupKey = sjcl.codec.base64.toBits(keys[group]);
     //The first 256-bit of the groupKey is key for AES
-    //The second 256-bit of the groupKey is key for MAC
+    //The second 512-bit of the groupKey is key for MAC
     var key = sjcl.bitArray.bitSlice(groupKey, 0, 256);
     var macKey = sjcl.bitArray.bitSlice(groupKey, 256);
     var cipherBits = CTRAESEncript(key, sjcl.codec.utf8String.toBits(plainText));
-    var macTag = sjcl.misc.pbkdf2(cipherBits, macKey); 
+    var macTag = CBCMAC(cipherBits, macKey); 
 
     var message = sjcl.bitArray.concat(macTag, cipherBits);
 
@@ -90,13 +90,13 @@ function Decrypt(cipherText, group) {
     }
     var groupKey = sjcl.codec.base64.toBits(keys[group]);
     //The first 256-bit of the groupKey is key for AES
-    //The second 256-bit of the groupKey is key for MAC
+    //The second 512-bit of the groupKey is key for MAC
     var key = sjcl.bitArray.bitSlice(groupKey, 0, 256);
     var macKey = sjcl.bitArray.bitSlice(groupKey, 256);
     var message = sjcl.codec.base64.toBits(cipherText.slice(START_TAG.length));
-    var macTag = message.slice(0, 8);
-    var cipherBits = message.slice(8);
-    var curMacTag = sjcl.misc.pbkdf2(cipherBits, macKey); 
+    var macTag = message.slice(0, 4);
+    var cipherBits = message.slice(4);
+    var curMacTag = CBCMAC(cipherBits, macKey); 
     if (sjcl.codec.base64.fromBits(macTag) != sjcl.codec.base64.fromBits(curMacTag)) {
       throw "[ALERT] Someone changes the message! OR Group key changes. "; 
     }
@@ -113,7 +113,8 @@ function Decrypt(cipherText, group) {
 //
 // @param {String} group Group name.
 function GenerateKey(group) {
-  var key = sjcl.codec.base64.fromBits(GetRandomValues(16));
+  //First 256-bit for encryption; Middle 256-bit for Mac Key1; Last 256-bit for Mac Key2.
+  var key = sjcl.codec.base64.fromBits(GetRandomValues(24)); 
   keys[group] = key;
   SaveKeys();
 }
@@ -128,9 +129,9 @@ function SaveKeys() {
     //console.log("save key getdbsecurepassword callback");
     var encryptedKeyJson = CTRAESEncript(key, sjcl.codec.utf8String.toBits(keyJson));
     cs255.localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(sjcl.codec.base64.fromBits(encryptedKeyJson)));
-    var macKey = GetRandomValues(4);
+    var macKey = GetRandomValues(16);
     cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbMacKey", sjcl.codec.base64.fromBits(macKey));
-    var macTag = sjcl.misc.pbkdf2(encryptedKeyJson, macKey);
+    var macTag = CBCMAC(encryptedKeyJson, macKey);
     cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbMacTag", sjcl.codec.base64.fromBits(macTag));
     //console.log('save key to' + my_username);
   });
@@ -150,7 +151,7 @@ function LoadKeys() {
       var encryptedKeyJson = sjcl.codec.base64.toBits(decodeURIComponent(saved));
       var passMac = sjcl.codec.base64.toBits(passMac_B64);    
       var macKey = sjcl.codec.base64.toBits(macKey_B64);    
-      var macTag = sjcl.misc.pbkdf2(encryptedKeyJson, macKey);
+      var macTag = CBCMAC(encryptedKeyJson, macKey);
 
       if (!sjcl.bitArray.equal(macTag, passMac)) {
           alert('Database has no integrity.')  
@@ -285,21 +286,16 @@ function GetDBSecurePassword(callback) {
         cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbPasswordSetup", "true");
         var salt = GetRandomValues(4);
         var dbSecurePassword = sjcl.misc.pbkdf2(dbPassword, salt);
-        //console.log('h2i');
 
         dbSecurePassword_B64 = sjcl.codec.base64.fromBits(dbSecurePassword);
+
         sessionStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePassword", dbSecurePassword_B64);
         cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecureSalt", sjcl.codec.base64.fromBits(salt));
-        var macKey = GetRandomValues(4);
+        var macKey = GetRandomValues(16);
         cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacKey", sjcl.codec.base64.fromBits(macKey));
-        var macTag = sjcl.misc.pbkdf2(dbSecurePassword, macKey);
+        var macTag = CBCMAC(dbSecurePassword, macKey);
         cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePasswordMacTag", sjcl.codec.base64.fromBits(macTag));
         
-
-        //console.log("sp:" +  dbSecurePassword);
-        //console.log("mk:" +macKey);
-        //console.log("mt:" +macTag);
-
         callback(dbSecurePassword);
       });
     } else {
@@ -309,17 +305,12 @@ function GetDBSecurePassword(callback) {
         var dbSecurePassword = sjcl.misc.pbkdf2(dbPassword, salt);
         var macKey = sjcl.codec.base64.toBits(macKey_B64);
         var passMac = sjcl.codec.base64.toBits(passMac_B64);        
-        var macTag = sjcl.misc.pbkdf2(dbSecurePassword, macKey);
-
-        //console.log("dsp:" +dbSecurePassword);
-        //console.log("dmk:" +macKey);
-        //console.log("dmt:" +macTag);
-        //console.log("dpm:" +passMac);
+        var macTag = CBCMAC(dbSecurePassword, macKey);
 
         if (!sjcl.bitArray.equal(macTag, passMac)) {
            password_attempt_correct = false;
            return;
-        }else{
+        } else {
            password_attempt_correct = true;
         }
 
@@ -334,50 +325,93 @@ function GetDBSecurePassword(callback) {
   }
 }
 
+// @param {bitArray} content of length 256-bits
+function AddOne(content) {
+  var carry = 1; 
+  for (var i = 3; i >= 0 && carry > 0; i--) {
+    content[i] += carry;
+    carry = 0;
+    if (content[i] == 0x100000000) {
+      carry = 1;
+      content[i] = 0;
+    }
+  }
+  return content;
+}
+
 // @param {bitArray} content
-// @param {integer} [128] blockBits blockBits is a multiple of 32.
+// @param {integer} blockBits [blockBits=128] blockBits blockBits is a multiple of 32.
 function Padding(content, blockBits) {
   blockBits = blockBits || 128;
+  content = sjcl.bitArray.concat(content, [sjcl.bitArray.partial(1,1)]);
   var bitLen = sjcl.bitArray.bitLength(content);
   var reminder = bitLen % blockBits;
-  var padLen = 0;
-  if (reminder <= blockBits - 8) {
-    padLen = blockBits - 8 - reminder;
-  } else {
-    padLen = blockBits * 2 - 8 - reminder;
+  if (reminder == 0)
+    return content;
+  var len = blockBits - reminder;
+  if (len % 32 > 0) {
+    content = sjcl.bitArray.concat(content, [sjcl.bitArray.partial(len%32,0)]);
+    len -= len % 32;
   }
-  var padding = sjcl.bitArray.clamp(GetRandomValues(blockBits / 8), padLen);
-  var paddingWithLen = sjcl.bitArray.concat(padding, [sjcl.bitArray.partial(8, padLen)]);
-  return sjcl.bitArray.concat(content, paddingWithLen);
+  while (len > 0) {
+    content.push(0);
+    len -= 32;
+  }
+  return content;
 }
 
 // @param {bitArray} content
-// @param {integer} [128] blockBits
+// @param {integer} [128] blockBits [blockBits=128] blockBits blockBits is a multiple of 32.
 function Unpadding(content, blockBits) {
-  blockBits = blockBits || 8;
+  blockBits = blockBits || 128;
   var bitLen = sjcl.bitArray.bitLength(content);
-  if (bitLen % blockBits != 0) {
-    throw new sjcl.exception.invalid("invalid padding block size");
+  var bit1 = [sjcl.bitArray.partial(1,1)];
+
+  while (bitLen > 0 && !sjcl.bitArray.equal(sjcl.bitArray.bitSlice(content, bitLen - 1, bitLen), bit1)) {
+    bitLen--;
   }
-  var padLen = content[content.length - 1] & 0xFF;
-  return sjcl.bitArray.bitSlice(content, 0, bitLen - 8 - padLen);
+  if (bitLen == 0) {
+    alert('error in unpadding');
+  }
+  return sjcl.bitArray.bitSlice(content, 0, bitLen - 1);
 }
 
+// @param {bitArray or string} buffer such that its length should be multiple of 256-bit 
+// @param {bitArray} key of length 512-bit
+// @return 128-bit
+function CBCMAC(buffer, key) {
+  if (typeof buffer === "string") {
+    buffer = sjcl.codec.utf8String.toBits(buffer);
+  }
+  buffer = Padding(buffer, 128);
 
+  var result = new Array(4);
+  result[0] = result[1] = result[2] = result[3] = 0;
+  var key1 = sjcl.bitArray.bitSlice(key, 0, 256);
+  var key2 = sjcl.bitArray.bitSlice(key, 256);
+  var cipher = new sjcl.cipher.aes(key1);
+  for (var i = 0; i < buffer.length; i += 4) {
+    result = cipher.encrypt(sjcl.bitArray._xor4(buffer.slice(i, i + 4), result));
+  }
+  var cipher2 = new sjcl.cipher.aes(key2);
+  result = cipher2.encrypt(result);
+  return result;
+}
+
+// Block size = 4
 // @param {bitArray} key of length 256-bit
-// @param {bitArray} plaintext 
+// @param {bitArray} plaintext  whose length is not more than 2^32 blocks
 // @return {bitArray} ciphertext 
 function CTRAESEncript(key, plaintext) {
   var buffer = Padding(plaintext, 128);
   var cipher = new sjcl.cipher.aes(key);
   var nonce = GetRandomValues(4);
-  var ctr = new Array();
+  var ctr = new Array(4);
+  ctr[0] = ctr[1] = ctr[2] = ctr[3] = 0;
   for (var i = 0; i < buffer.length; i += 4) {
-    ctr[0] = ctr[1] = ctr[2] = ctr[3] = i;
-
+    ctr = AddOne(ctr);
     var curEncrypted = sjcl.bitArray._xor4(buffer.slice(i, i + 4),
       cipher.encrypt(sjcl.bitArray._xor4(nonce, ctr)));
-    
     for (var j = 0; j < 4; j++) {
       buffer[i + j] = curEncrypted[j];
     }
@@ -385,9 +419,10 @@ function CTRAESEncript(key, plaintext) {
   return sjcl.bitArray.concat(buffer, nonce); 
 }
 
+// Block size = 4
 // @param {bitArray} key of length 
-// @param {bitArray} ciphertext 
-// @return {bitArray} plaintext 
+// @param {bitArray} ciphertext  whose length is multiple of 256
+// @return {bitArray} plaintext   whose length is multiple of 256
 function CTRAESDecript(key, ciphertext) {
   var bitLen = sjcl.bitArray.bitLength(ciphertext);
   if (bitLen % 128 != 0) {
@@ -397,9 +432,10 @@ function CTRAESDecript(key, ciphertext) {
 
   var buffer = new Array(ciphertext.length - 4);
   var cipher = new sjcl.cipher.aes(key);
+  var ctr = new Array(4);
+  ctr[0] = ctr[1] = ctr[2] = ctr[3] = 0;
   for (var i = 0; i < buffer.length; i += 4) {
-    var ctr = new Array();
-    ctr[0] = ctr[1] = ctr[2] = ctr[3] = i;
+    ctr = AddOne(ctr);
     var curDecrypted = sjcl.bitArray._xor4(ciphertext.slice(i, i + 4),
       cipher.encrypt(sjcl.bitArray._xor4(nonce, ctr)));
     for (var j = 0; j < 4; j++) {
@@ -1866,7 +1902,8 @@ sjcl.hash.sha256.prototype = {
 };
 
 window.sjcl = sjcl;
-window.ClearDBPassword = ClearDBPassword;
+window.u = {Encrypt:Encrypt,ClearDBPassword:ClearDBPassword,CBCMAC:CBCMAC,GenerateKey:GenerateKey,GetRandomValues:GetRandomValues,
+  LoadKeys:LoadKeys,SaveKeys:SaveKeys,CTRAESDecript:CTRAESDecript,CTRAESEncript:CTRAESEncript,Padding:Padding,Unpadding:Unpadding};
 
 // This is the initialization
 //ClearDBPassword();

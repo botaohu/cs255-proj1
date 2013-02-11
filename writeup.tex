@@ -36,11 +36,12 @@
 \pagestyle{myheadings}  % Leave this command alone
 
 
-\section{Milestone 1}
+\section{Design and Implementation}
+\subsection{Assumptions}
+The attacker can see all data in localStorage and the code of our extension in Chrome and can not see any data in sessionStorage in Chrome (because the user closes the browser before attacking as the problem setting states).
+The usernames are exposed to the attacker because the usernames are leaked by Facebook's cookie no matter what you do. 
 
-Note: In the code of this milestone, we also added MAC tags to the group messages, but we have not implemented HMAC and other mac functions yet. We'll write about MAC related issues in milestone 2. 
-
-\subsection{How are database keys created and stored?}
+\subsection{Creating and storing database keys}
 
 When the user firsts visit facebook.com and logs in, we ask her to setup a database password. We used the database key plain text provided by the user together with a randomly generated 128 bit salt to generate a encrypted database key using PBKDF2, shown in figure \ref{fig:dbkeys}. The purpose of salt here is to add entropy to the password chosen by the user and prevent attacker to precompute rainbow tables to lookup encrypted keys. 
 
@@ -53,9 +54,9 @@ The encrypted database key is then used to encrypt and decrypt the group keys in
 \includegraphics[height=5cm]{fig/dbkeys.eps}
 \end{figure}
 
-\subsection{How to verify if the user enters the right password?}
+\subsection{Verifying if the user enters the right password}
 \label{sec:verify}
-To verify if the user enters their password correctly, we generate a MAC tag (using PBKDF2) for the encrypted database key and store it in the localStorage on disk, which is illustrated in figure \ref{fig:verify_dbkeys}. Later we re-evaluate the MAC tag when user enters her password and verify if it equals to the MAC tag on localStorage. We used a randomly generated MAC key to generate the tag, where the MAC key is also stored on localStorage. Note that using MAC here is only for verification purpose and it does not prevent forgery (the attacker can use the MAC key to generate a new tag, then overwrite the tag on localStorage, but the attacker wouldn't decrypt the database correctly unless he know the database key. It can not be used to access other user's database key. Furthermore, even though the attacker may use the MAC key to find the collision of the password having the same MAC tag, but because MAC key and the salt for the database key generation are different, the attacker could not use the collision password (but different to the database password) to decrypt the database correctly. 
+To verify if the user enters their password correctly, we generate a MAC tag (using CBCMAC) for the encrypted database key and store it in the localStorage on disk, which is illustrated in figure \ref{fig:verify_dbkeys}. Later we re-evaluate the MAC tag when user enters her password and verify if it equals to the MAC tag on localStorage. We used a randomly generated MAC key to generate the tag, where the MAC key is also stored on localStorage. Note that using MAC here is only for verification purpose and it does not prevent forgery (the attacker can use the MAC key to generate a new tag, then overwrite the tag on localStorage, but the attacker wouldn't decrypt the database correctly unless he know the database key. It can not be used to access other user's database key. Furthermore, even though the attacker may use the MAC key to find the collision of the password having the same MAC tag, but because MAC key and the salt for the database key generation are different, the attacker could not use the collision password (but different to the database password) to decrypt the database correctly. 
 \begin{figure}[h!]
 \centering
 \caption{Verify the database password}
@@ -63,19 +64,22 @@ To verify if the user enters their password correctly, we generate a MAC tag (us
 \includegraphics[height=5cm]{fig/verify_dbkeys.eps}
 \end{figure}
 
-\subsection{How to maintain a secure database for the group keys?}
+\subsection{Maintaining a secure database for the group keys}
 We used the encrypted database keys to encrypt and decrypt groups keys on the fly without storing the encrypted database key in localStorage, which is shown in figure \ref{fig:db}. We encrypt and decrypt the group keys in nonce-based counter mode with AES.  In this way the attacker has no way to find out what the encrypted database key is given the cipher text if the block cipher under counter mode is secure. 
-In addition, to prevent to leak the group name information, we encrypt and decrypt the whole JSON string of the hash table of all group keys. For integrity, we use the same MAC technology in section \ref{sec:verify} with a seperate key to ensure the integrity of the data.
+In addition, to prevent to leak the group name information, we encrypt and decrypt the whole JSON string of the hash table of all group keys. For integrity, we use the same MAC technology in section \ref{sec:verify} with a seperate key to ensure the integrity of the data for making sure that the store haven't been changed between program runs.
 \begin{figure}[h!]
 \centering
 \caption{Maintain the database of group keys}
 \label{fig:db}
 \includegraphics[height=6cm]{fig/db.eps}
+\vspace{-1cm}
 \end{figure}
 
-\subsection{How we implement the block cipher for group message and make sure it is safe against CPA attack?}
-We implemented nonce-based counter mode (CTR) using AES to encrypt and decrypt group messages using the group keys, which is shown in figure \ref{fig:msg_enc} and \ref{fig:msg_dec}. 
-For integrity, we use the MAC with a seperate key to ensure the integrity of the data. We send the MAC tag with the ciphertext together.
+\subsection{The block cipher for group message}
+We implemented nonce-based counter mode (CTR) using AES to encrypt and decrypt group messages using the group keys. 
+For encryption, we first generate a random nonce $IV$, then we derive the ciphertext of $i$-th block by $c_i = AES(k, IV \oplus i) \oplus m_i$ where $m_i$ is the $i$-th block of plaintext, and finally we append the nonce in the end of the ciphertext. For decryption, we first pick the nonce out from the end of the message, then we derive the plaintext of $i$-th block by $m_i = AES^{-1}(k, IV \oplus i) \oplus c_i$. 
+
+For integrity, we use the MAC with a seperate key to ensure the integrity of the data. We send the MAC tag with the ciphertext together. The workflow to verify the messages by MAC is shown in figure \ref{fig:msg_enc} and \ref{fig:msg_dec}. 
 
 By Counter-mode Theorem, since $AES$ is a secure PRP over $(K,X,X)$, CTR has semantic security under $q$ queries of CPA over $(K,X^L,X^{L+1})$ as long as $q^2L \ll |X|$. 
 So such mode is proved to be secure.
@@ -93,9 +97,7 @@ So such mode is proved to be secure.
 \includegraphics[width=12cm]{fig/msg_dec.eps}
 \end{figure}
 
-\subsection{What would happen if the attacker has access to localStorage and other locally stored materials? }
-The assumption here is that the attacker has access to all locally stored materials after the user closes the session (browser tab). Namely, the locally stored information includes the encrypted database of  group keys, the salt of the database password, the MAC key, and the MAC tag for the encrypted database password. The attacker can not get significant information about the group keys because the encrypted database key is not stored locally, and he can not recover the encrypted database key from a secure MAC function without exhaustive search. He's not able to understand the encrypted database without knowing the encrypted database key since the nonce-based counter mode is secure under CPA attack. 
-\subsection{How we implement the block padding?}
+\subsection{Block padding}
 
 \begin{figure}[h!]
 \centering
@@ -104,12 +106,21 @@ The assumption here is that the attacker has access to all locally stored materi
 \includegraphics[width=8cm]{fig/padding.eps}
 \end{figure}
 
-The figure \ref{fig:padding} shows how we implement the block padding. We suppose the block size is 256 bits and the text in the last block is occupied the first $p$ bits. If $p \le 256 - 8$, we set the last byte of the last block is the length $L = 256 - p - 8$ of the random pad. Then we fill $L$ random bits between the last byte and the end of the text. 
-If $p > 256 - 8$, we will append a new block, and set the last byte of the last block is the length $L = 512 - p - 8$, and fill $L$ random bits between the last byte and the end of the text. 
+Our padding strategy is that we append a bit of 1 immediately after the text and then pads bits of 0 until the length of the text is a multiple of the length of a block. The figure \ref{fig:padding} shows how we implement the block padding. 
 
-\subsection{How we generate keys?}
+\subsection{MAC system}
+We implemented CBC-MAC system using AES. 
+We first let $c = 0$. In the order of blocks in the message, we iterate and generate $c \gets AES(k_1, m_i \oplus c)$ where $m_i$ is $i$-th block of the message. 
+
+To prevent the attacker to append new blocks to the ciphertext, CBC-MAC requires another 256-bit key $k_2$ to encrypt the last block. Namely, finally, we output $c' \gets AES(k_2, c)$. Thus, we need to store two 256-bit keys as an 512-bit key in the storage. 
+By CBC-MAC Theorem, CBC-MAC under $q$ queries of CPA is secure as long as  $q^2 \ll |X|$.
+
+\subsection{Generating keys}
 The \texttt{Math.random()} function from javascript is not random. So we use the \texttt{crypto} library from Chrome to generate random keys. In \texttt{GenerateKey}, we generate a random key of 512 bits. The first 256 bits are used as the key for the group message encryption, and the last 256 bits are used as the key for MAC of the message encryption. 
 
+\section{Security}
+\subsection{What would happen if the attacker has access to localStorage and other locally stored materials? }
+The assumption here is that the attacker has access to all locally stored materials after the user closes the session (browser tab). Namely, the locally stored information includes the encrypted database of  group keys, the salt of the database password, the MAC key, and the MAC tag for the encrypted database password. The attacker can not get significant information about the group keys because the encrypted database key is not stored locally, and he can not recover the encrypted database key from a secure MAC function without exhaustive search. He's not able to understand the encrypted database without knowing the encrypted database key since the nonce-based counter mode is secure under CPA attack. 
 \subsection{How could somebody go about circumventing the security of your implementation, if they really wanted to?}
 The attacker could use side channel attacks on the computer system to monitor the timing and energy flow on chip of decryption or encryption of the messages to find out the keys. The attackers can also potentially implant viruses or use web browser security holes to steal sessionStorage information from the user or even listen to key strokes on the system level. The attacker can also forge a insecure web browser with their own implementation of web standards and javascript runtime for the user to download and use. Insecurely executed javascript on the browser or injected scripts from untrusted third party would also lead to trivial attacks. Finally, the attacker can deploy generic attack so that he can use the cipher to process huge amount of plaintext until the key is no longer secure (need renew key at this point).
 
@@ -132,7 +143,7 @@ Because we can not modify the UI logic of the starter code in the submission, th
 
 We didn't change \texttt{menifest.json} except modifying the javascript file name and adding our names to the description.
 
-We didn't make any change to the code below \texttt{GetRandomValues()} and we implemented the required functions (\texttt{Encrypt}, \texttt{Decrypt}, \texttt{GenerateKey}, \texttt{SaveKeys}, \texttt{LoadKeys}) in the assignment. We added several helper functions under \texttt{LoadKeys()}, their main purposes are building UI (\texttt{BuildUIBox}), initiating and querying database password (\texttt{GetDBSecurePassword}), calculate padding (\texttt{Unpadding}, \texttt{Padding}), and implement the nounce-based counter mode (\texttt{CTRAESDecript}, \texttt{CTRAESEncript}). It's easy to see the documentation in the code to learn what they do.
+We didn't make any change to the code below \texttt{GetRandomValues()} and we implemented the required functions (\texttt{Encrypt}, \texttt{Decrypt}, \texttt{GenerateKey}, \texttt{SaveKeys}, \texttt{LoadKeys}) in the assignment. We added several helper functions under \texttt{LoadKeys()}, their main purposes are building UI (\texttt{BuildUIBox}), initiating and querying database password (\texttt{GetDBSecurePassword}), calculate padding (\texttt{Unpadding}, \texttt{Padding}), calculating MAC (\texttt{CBCMAC}) and implement the nounce-based counter mode (\texttt{CTRAESDecript}, \texttt{CTRAESEncript}). It's easy to see the documentation in the code to learn what they do.
 
 \subsection{Comment}
 

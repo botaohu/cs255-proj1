@@ -35,11 +35,22 @@
 
 \pagestyle{myheadings}  % Leave this command alone
 
+\section{Response to Milestone 1 Feedback}
+In response to the milestone 1 feedback, here are several items we want to specially emphasize to make sure the TA understands our design (also commented in code).
+
+\begin{itemize}
+\item Notice that we only store the encrypted password in sessionStore and the salt for the password in localStorage. We NEVER store the clear text of password in any location.
+\item Notice that we use a random nonce and XOR the nonce with the counter to generate the IV. The counter assumes that we're not encrypting over $2^{32}$ bits of data.
+\item Notice that we first encrypt the message, then MAC the cipher text, which is suggested to be more secure in class.
+\item Notice that the encrypted db password and the encrypted group keys are all CBC-MAC-ed, and no same MAC key is used for multiple purposes.
+\item As we are using callback functions for UI and it's quite complex to change our code back to prompt again. We'll leave it there. We're sorry to create the extra work for you to test through it manually. We made sure we passed all tests suggested in https://piazza.com/class\#winter2013/cs255/137 
+\end{itemize}
 
 \section{Design and Implementation}
 \subsection{Assumptions}
 The attacker can see all data in localStorage and the code of our extension in Chrome and can not see any data in sessionStorage in Chrome (because the user closes the browser before attacking as the problem setting states).
 The usernames are exposed to the attacker because the usernames are leaked by Facebook's cookie no matter what you do. 
+The message posted in the facebook will not exceed $2^{32}$ blocks. 
 
 \subsection{Creating and storing database keys}
 
@@ -115,12 +126,16 @@ We first let $c = 0$. In the order of blocks in the message, we iterate and gene
 To prevent the attacker to append new blocks to the ciphertext, CBC-MAC requires another 256-bit key $k_2$ to encrypt the last block. Namely, finally, we output $c' \gets AES(k_2, c)$. Thus, we need to store two 256-bit keys as an 512-bit key in the storage. 
 By CBC-MAC Theorem, CBC-MAC under $q$ queries of CPA is secure as long as  $q^2 \ll |X|$.
 
+We use Encrypt-then-MAC to append the MAC tag to our ciphertext, i.e., we append the MAC tag, which calculated from the encrypted ciphertext, to the ciphertext. 
+The MAC does not provide any information on the plaintext. It also provides integrity of ciphertext. 
+
 \subsection{Generating keys}
 The \texttt{Math.random()} function from javascript is not random. So we use the \texttt{crypto} library from Chrome to generate random keys. In \texttt{GenerateKey}, we generate a random key of 512 bits. The first 256 bits are used as the key for the group message encryption, and the last 256 bits are used as the key for MAC of the message encryption. 
 
 \section{Security}
 \subsection{What would happen if the attacker has access to localStorage and other locally stored materials? }
 The assumption here is that the attacker has access to all locally stored materials after the user closes the session (browser tab). Namely, the locally stored information includes the encrypted database of  group keys, the salt of the database password, the MAC key, and the MAC tag for the encrypted database password. The attacker can not get significant information about the group keys because the encrypted database key is not stored locally, and he can not recover the encrypted database key from a secure MAC function without exhaustive search. He's not able to understand the encrypted database without knowing the encrypted database key since the nonce-based counter mode is secure under CPA attack. 
+
 \subsection{How could somebody go about circumventing the security of your implementation, if they really wanted to?}
 The attacker could use side channel attacks on the computer system to monitor the timing and energy flow on chip of decryption or encryption of the messages to find out the keys. The attackers can also potentially implant viruses or use web browser security holes to steal sessionStorage information from the user or even listen to key strokes on the system level. The attacker can also forge a insecure web browser with their own implementation of web standards and javascript runtime for the user to download and use. Insecurely executed javascript on the browser or injected scripts from untrusted third party would also lead to trivial attacks. Finally, the attacker can deploy generic attack so that he can use the cipher to process huge amount of plaintext until the key is no longer secure (need renew key at this point).
 

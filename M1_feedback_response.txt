@@ -6,3 +6,4 @@ In response to the milestone 1 feedback, here are several items we want to speci
 2. Notice that we use a random nonce and XOR the nonce with the counter to generate the IV. The counter assumes that we're not encrypting over 2^32 bits of data.
 3. Notice that we first encrypt the message, then MAC the cipher text, which is suggested to be more secure in class.
 4. Notice that the encrypted db password and the encrypted group keys are all CBC-MAC-ed, and no same MAC key is used for multiple purposes.
+5. As we are using callback functions for UI and it's quite complex to change our code back to prompt again. We'll leave it there. We're sorry to create the extra work for you to test through it manually. We made sure we passed all tests suggested in https://piazza.com/class#winter2013/cs255/137 

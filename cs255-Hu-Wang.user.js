@@ -67,6 +67,8 @@ function Encrypt(plainText, group) {
     var key = sjcl.bitArray.bitSlice(groupKey, 0, 256);
     var macKey = sjcl.bitArray.bitSlice(groupKey, 256);
     var cipherBits = CTRAESEncript(key, sjcl.codec.utf8String.toBits(plainText));
+
+    // Notice that we first encrypt the message, then mac the cipher text, which is suggested to be more secure in class
     var macTag = CBCMAC(cipherBits, macKey); 
 
     var message = sjcl.bitArray.concat(macTag, cipherBits);
@@ -289,6 +291,7 @@ function GetDBSecurePassword(callback) {
 
         dbSecurePassword_B64 = sjcl.codec.base64.fromBits(dbSecurePassword);
 
+        // Notice that we only store the encrypted password in sessionStore and the salt for the password in localStorage. We NEVER store the clear text of password in any location.
         sessionStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecurePassword", dbSecurePassword_B64);
         cs255.localStorage.setItem('facebook-keys-' + my_username + "-" + "dbSecureSalt", sjcl.codec.base64.fromBits(salt));
         var macKey = GetRandomValues(16);
@@ -405,6 +408,7 @@ function CBCMAC(buffer, key) {
 function CTRAESEncript(key, plaintext) {
   var buffer = Padding(plaintext, 128);
   var cipher = new sjcl.cipher.aes(key);
+  // Notice that we use a random nonce and XOR the nonce with the counter to generate the IV. The counter assumes that we're not encrypting over 2^32 bits of data.
   var nonce = GetRandomValues(4);
   var ctr = new Array(4);
   ctr[0] = ctr[1] = ctr[2] = ctr[3] = 0;

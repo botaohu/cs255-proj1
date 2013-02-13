@@ -130,7 +130,7 @@ We use Encrypt-then-MAC to append the MAC tag to our ciphertext, i.e., we append
 The MAC does not provide any information on the plaintext. It also provides integrity of ciphertext. 
 
 \subsection{Generating keys}
-The \texttt{Math.random()} function from javascript is not random. So we use the \texttt{crypto} library from Chrome to generate random keys. In \texttt{GenerateKey}, we generate a random key of 512 bits. The first 256 bits are used as the key for the group message encryption, and the last 256 bits are used as the key for MAC of the message encryption. 
+The \texttt{Math.random()} function from javascript is not random. So we use the \texttt{crypto} library from Chrome to generate random keys. In \texttt{GenerateKey}, we generate a random key of 256+512 bits. The first 256 bits are used as the key for the group message encryption, and the last 512 bits are used as the two 256-bit keys for MAC of the message encryption. 
 
 \section{Security}
 \subsection{What would happen if the attacker has access to localStorage and other locally stored materials? }
